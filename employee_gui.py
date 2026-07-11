@@ -8,7 +8,7 @@ import subprocess, sys
 import time
 
 
-def open_employee_gui(uid, uname):
+def open_employee_gui(uid, uname, on_logout=None):
     root = ctk.CTk()
     root.geometry("700x900")
     status_clear_job = None
@@ -135,8 +135,8 @@ def open_employee_gui(uid, uname):
     def logout():
         with open("current_session.txt", "w") as f:
             f.write("0")
-        import subprocess
-        subprocess.Popen(["restart.bat"], shell=True, cwd=os.path.dirname(os.path.abspath(__file__)))
+        if on_logout is not None:
+            on_logout()
         root.destroy()
 
     ctk.CTkButton(container, text="Logout", command=logout).pack(pady=(2, 8))
@@ -144,8 +144,8 @@ def open_employee_gui(uid, uname):
     def on_close():
         with open("current_session.txt", "w") as f:
             f.write("0")
-        import subprocess
-        subprocess.Popen(["restart.bat"], shell=True, cwd=os.path.dirname(os.path.abspath(__file__)))
+        if on_logout is not None:
+            on_logout()
         root.destroy()
 
     root.protocol("WM_DELETE_WINDOW", on_close)

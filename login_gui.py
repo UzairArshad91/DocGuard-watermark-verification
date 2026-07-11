@@ -15,6 +15,15 @@ ctk.set_appearance_mode("dark")
 def get_conn():
     return sqlite3.connect("logs.db", timeout=10)
 
+def show_login():
+    name.delete(0, "end")
+    pin.delete(0, "end")
+    status.configure(text="")
+    root.deiconify()
+    root.lift()
+    root.focus_force()
+
+
 def login():
     conn = get_conn()
     cur = conn.cursor()
@@ -28,11 +37,11 @@ def login():
     with open("current_session.txt", "w") as f:
         f.write(str(uid))
     uname = name.get()
-    root.destroy()
+    root.withdraw()
     if role == "admin":
-        open_admin_gui(uid)
+        open_admin_gui(uid, on_logout=show_login)
     else:
-        open_employee_gui(uid, uname)
+        open_employee_gui(uid, uname, on_logout=show_login)
         
 
 def admin_close():

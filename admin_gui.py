@@ -12,7 +12,7 @@ def get_conn():
     return sqlite3.connect("logs.db", timeout=10)
 
 
-def open_admin_gui(uid):
+def open_admin_gui(uid, on_logout=None):
     root = ctk.CTk()
     root.title("Admin Panel")
     root.geometry("650x650")
@@ -422,8 +422,8 @@ def open_admin_gui(uid):
     def logout():
         with open("current_session.txt", "w") as f:
             f.write("0")
-        import subprocess
-        subprocess.Popen(["restart.bat"], shell=True, cwd=os.path.dirname(os.path.abspath(__file__)))
+        if on_logout is not None:
+            on_logout()
         root.destroy()
 
     ctk.CTkButton(root, text="Logout", command=logout).grid(row=6, column=0, columnspan=2, pady=10)
@@ -432,8 +432,8 @@ def open_admin_gui(uid):
     def on_close():
         with open("current_session.txt", "w") as f:
             f.write("0")
-        import subprocess
-        subprocess.Popen(["restart.bat"], shell=True, cwd=os.path.dirname(os.path.abspath(__file__)))
+        if on_logout is not None:
+            on_logout()
         root.destroy()
 
     root.protocol("WM_DELETE_WINDOW", on_close)
