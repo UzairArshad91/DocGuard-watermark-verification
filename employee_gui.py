@@ -91,7 +91,7 @@ def open_employee_gui(uid, uname):
         subprocess.Popen(["restart.bat"], shell=True, cwd=os.path.dirname(os.path.abspath(__file__)))
         root.destroy()
 
-    ctk.CTkButton(root, text="Logout", command=logout).pack(pady=10)
+    ctk.CTkButton(container, text="Logout", command=logout).pack(pady=(2, 8))
 
     def on_close():
         with open("current_session.txt", "w") as f:
