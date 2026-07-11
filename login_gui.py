@@ -44,28 +44,28 @@ def login():
         open_employee_gui(uid, uname, on_logout=show_login)
         
 
-def admin_close():
-    os.system("taskkill /F /IM python.exe /T & taskkill /F /IM pythonw.exe /T")
-
 # def admin_close():
-#     win = ctk.CTkToplevel(root)
-#     win.geometry("300x200")
-#     win.attributes("-topmost", True)
-#     ctk.CTkLabel(win, text="Admin Name").pack(); n = ctk.CTkEntry(win); n.pack()
-#     ctk.CTkLabel(win, text="PIN").pack(); p = ctk.CTkEntry(win, show="*"); p.pack()
-#     status = ctk.CTkLabel(win, text=""); status.pack()
+#     os.system("taskkill /F /IM python.exe /T & taskkill /F /IM pythonw.exe /T")
 
-#     def confirm():
-#         conn = get_conn(); cur = conn.cursor()
-#         cur.execute("SELECT * FROM Users WHERE name=? AND pin=? AND role='admin'", (n.get(), p.get()))
-#         if cur.fetchone():
-#             conn.close()
-#             os.system("taskkill /F /IM python.exe /T & taskkill /F /IM pythonw.exe /T")
-#         else:
-#             status.configure(text="Access denied")
-#             conn.close()
+def admin_close():
+    win = ctk.CTkToplevel(root)
+    win.geometry("300x200")
+    win.attributes("-topmost", True)
+    ctk.CTkLabel(win, text="Admin Name").pack(); n = ctk.CTkEntry(win); n.pack()
+    ctk.CTkLabel(win, text="PIN").pack(); p = ctk.CTkEntry(win, show="*"); p.pack()
+    status = ctk.CTkLabel(win, text=""); status.pack()
 
-#     ctk.CTkButton(win, text="Confirm Close", command=confirm).pack(pady=10)
+    def confirm():
+        conn = get_conn(); cur = conn.cursor()
+        cur.execute("SELECT * FROM Users WHERE name=? AND pin=? AND role='admin'", (n.get(), p.get()))
+        if cur.fetchone():
+            conn.close()
+            os.system("taskkill /F /IM python.exe /T & taskkill /F /IM pythonw.exe /T")
+        else:
+            status.configure(text="Access denied")
+            conn.close()
+
+    ctk.CTkButton(win, text="Confirm Close", command=confirm).pack(pady=10)
 
 def on_close():
     with open("current_session.txt", "w") as f:
