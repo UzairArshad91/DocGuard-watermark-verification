@@ -79,16 +79,29 @@ def open_admin_gui(uid):
             ctk.CTkRadioButton(frm, text="Admin", variable=role, value="admin").grid(row=3, column=0)
             ctk.CTkRadioButton(frm, text="Employee", variable=role, value="employee").grid(row=3, column=1)
             status = ctk.CTkLabel(frm, text=""); status.grid(row=5, column=0, columnspan=2)
+            status_clear_job = None
+
+            def clear_status():
+                nonlocal status_clear_job
+                status.configure(text="")
+                status_clear_job = None
+
+            def set_status(message):
+                nonlocal status_clear_job
+                if status_clear_job is not None:
+                    frm.after_cancel(status_clear_job)
+                status.configure(text=message)
+                status_clear_job = frm.after(2000, clear_status)
 
             def submit_add():
                 if not nm.get() or not em.get() or not pn.get():
-                    status.configure(text="All fields required")
+                    set_status("All fields required")
                     return
                 conn = get_conn(); cur = conn.cursor()
                 cur.execute("INSERT INTO Users (name, email, pin, role) VALUES (?,?,?,?)",
                             (nm.get(), em.get(), pn.get(), role.get()))
                 conn.commit(); conn.close()
-                status.configure(text="User added")
+                set_status("User added")
 
             ctk.CTkButton(frm, text="Add", command=submit_add).grid(row=4, column=0, columnspan=2, pady=10)
 
@@ -99,20 +112,41 @@ def open_admin_gui(uid):
             ctk.CTkLabel(frm, text="User ID").grid(row=0, column=0, padx=10, pady=10)
             uid_e = ctk.CTkEntry(frm); uid_e.grid(row=0, column=1)
             status = ctk.CTkLabel(frm, text=""); status.grid(row=2, column=0, columnspan=2)
+            status_clear_job = None
+
+            def clear_status():
+                nonlocal status_clear_job
+                status.configure(text="")
+                status_clear_job = None
+
+            def set_status(message):
+                nonlocal status_clear_job
+                if status_clear_job is not None:
+                    frm.after_cancel(status_clear_job)
+                status.configure(text=message)
+                status_clear_job = frm.after(2000, clear_status)
 
             def submit_delete():
+                user_id = uid_e.get().strip()
+                if not user_id:
+                    set_status("User ID is required")
+                    return
                 conn = get_conn(); cur = conn.cursor()
                 cur.execute("SELECT COUNT(*) FROM Users WHERE role='admin'")
                 admin_count = cur.fetchone()[0]
-                cur.execute("SELECT role FROM Users WHERE user_id=?", (uid_e.get(),))
+                cur.execute("SELECT role FROM Users WHERE user_id=?", (user_id,))
                 target = cur.fetchone()
-                if target and target[0] == "admin" and admin_count <= 1:
-                    status.configure(text="Cannot delete last admin")
+                if not target:
+                    set_status("User not found")
                     conn.close()
                     return
-                cur.execute("DELETE FROM Users WHERE user_id=?", (uid_e.get(),))
+                if target[0] == "admin" and admin_count <= 1:
+                    set_status("Cannot delete last admin")
+                    conn.close()
+                    return
+                cur.execute("DELETE FROM Users WHERE user_id=?", (user_id,))
                 conn.commit(); conn.close()
-                status.configure(text="User deleted")
+                set_status("User deleted")
 
             ctk.CTkButton(frm, text="Delete", command=submit_delete).grid(row=1, column=0, columnspan=2, pady=10)
 
@@ -191,10 +225,25 @@ def open_admin_gui(uid):
         status = ctk.CTkLabel(win, text=""); status.grid(row=3, column=0, columnspan=2)
 
         def submit():
+            user_id = uid_e.get().strip()
+            new_pin = pin_e.get().strip()
+            if not user_id:
+                status.configure(text="User ID is required")
+                return
+            if not new_pin:
+                status.configure(text="New PIN is required")
+                return
             conn = get_conn(); cur = conn.cursor()
-            cur.execute("UPDATE Users SET pin=? WHERE user_id=?", (pin_e.get(), uid_e.get()))
+            cur.execute("SELECT 1 FROM Users WHERE user_id=?", (user_id,))
+            target = cur.fetchone()
+            if not target:
+                conn.close()
+                status.configure(text="User not found")
+                return
+            cur.execute("UPDATE Users SET pin=? WHERE user_id=?", (new_pin, user_id))
             conn.commit(); conn.close()
             status.configure(text="PIN updated")
+            win.destroy()
 
         ctk.CTkButton(win, text="Update", command=submit).grid(row=2, column=0, columnspan=2, pady=10)
 
@@ -206,19 +255,50 @@ def open_admin_gui(uid):
             path.insert(0, f)
 
         def send():
-            if not is_verified_recipient(recipient.get()):
+            file_path = path.get().strip()
+            if not file_path:
+                status.configure(text="File path is required")
+                messagebox.showwarning("No file", "Please select a file to send.")
+                return
+            if not os.path.isfile(file_path):
+                status.configure(text="Invalid file path")
+                messagebox.showwarning("Invalid file", "File path is invalid or file does not exist.")
+                return
+
+            recipient_value = recipient.get().strip()
+            if not recipient_value:
+                status.configure(text="Recipient is required")
+                messagebox.showwarning("No recipient", "Please select a recipient.")
+                return
+            if not is_verified_recipient(recipient_value):
                 status.configure(text="Blocked: recipient not verified")
                 messagebox.showwarning("Blocked", "Recipient not verified")
                 return
-            file_path = path.get()
-            if not file_path:
-                messagebox.showwarning("No file", "Please select a file to send.")
+
+            pin_value = pin.get().strip()
+            if not pin_value:
+                status.configure(text="PIN is required")
+                messagebox.showwarning("No PIN", "Please enter your PIN.")
                 return
-            confirm = messagebox.askyesno("Confirm Send", f"Send:\n{os.path.basename(file_path)}\n to {recipient.get()}?")
+
+            conn = get_conn(); cur = conn.cursor()
+            cur.execute("SELECT pin FROM Users WHERE user_id=?", (uid,))
+            row = cur.fetchone()
+            conn.close()
+            if not row:
+                status.configure(text="User record not found")
+                messagebox.showerror("Error", "User record not found.")
+                return
+            if str(row[0]).strip() != pin_value:
+                status.configure(text="Invalid PIN")
+                messagebox.showwarning("Wrong PIN", "The PIN you entered is incorrect.")
+                return
+
+            confirm = messagebox.askyesno("Confirm Send", f"Send:\n{os.path.basename(file_path)}\n to {recipient_value}?")
             if not confirm:
                 return
             try:
-                send_document(file_path, uid, "Admin", uemail, recipient.get(), pin.get())
+                send_document(file_path, uid, "Admin", uemail, recipient_value, pin_value)
                 status.configure(text="Sent")
                 messagebox.showinfo("Sent", "Document sent successfully.")
             except Exception as e:
@@ -245,7 +325,7 @@ def open_admin_gui(uid):
         ctk.CTkLabel(form, text=f"Email: {uemail}").grid(row=1, column=0, columnspan=3, pady=10)
 
         ctk.CTkLabel(form, text="Recipient").grid(row=2, column=0, padx=8, pady=8, sticky="e")
-        recipient = ctk.CTkComboBox(form, values=VERIFIED_RECIPIENTS, width=420); recipient.grid(row=2, column=1, columnspan=2, padx=8, pady=8)
+        recipient = ctk.CTkComboBox(form, values=VERIFIED_RECIPIENTS, width=420, state="readonly"); recipient.grid(row=2, column=1, columnspan=2, padx=8, pady=8)
 
         ctk.CTkLabel(form, text="PIN").grid(row=3, column=0, padx=8, pady=8, sticky="e")
         pin = ctk.CTkEntry(form, width=420, show="*"); pin.grid(row=3, column=1, columnspan=2, padx=8, pady=8)
