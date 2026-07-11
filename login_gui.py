@@ -5,7 +5,6 @@ import subprocess
 from employee_gui import open_employee_gui
 from admin_gui import open_admin_gui
 import subprocess, sys
-import time
 sqlite3.connect("logs.db").execute("PRAGMA journal_mode=WAL;")
 subprocess.Popen([sys.executable, "main.py"])
 subprocess.Popen([sys.executable, "service_watchdog.py"])
