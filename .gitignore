@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+
+# Runtime / local data
+logs.db
+current_session.txt
+*.log
+.env
+
+# Build outputs
+build/
+dist/
+*.spec
+*.exe
+
+# IDE / OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Test files
+test_*.py
+testing.py
