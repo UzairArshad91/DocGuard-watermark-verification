@@ -1,5 +1,6 @@
 import os
 import time
+import sqlite3
 import requests
 from watermarking import add_watermark, get_sig_hash
 from encrypt import encrypt_id
@@ -8,9 +9,27 @@ from dlp_utils import is_verified_recipient
 SERVER = "http://127.0.0.1:5000"
 
 def send_document(filepath, user_id, name, email, recipient, pin):
+    if not filepath or not filepath.strip():
+        raise ValueError("File path is required")
+    if not os.path.isfile(filepath):
+        raise FileNotFoundError("File path is invalid or file does not exist")
+    if not recipient or not recipient.strip():
+        raise ValueError("Recipient is required")
+    if not pin or not pin.strip():
+        raise ValueError("PIN is required")
+
+    conn = sqlite3.connect("logs.db", timeout=10)
+    cur = conn.cursor()
+    cur.execute("SELECT pin FROM Users WHERE user_id=?", (user_id,))
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        raise ValueError("User record not found")
+    if str(row[0]).strip() != str(pin).strip():
+        raise ValueError("Invalid PIN")
+
     if not is_verified_recipient(recipient):
-        print("Blocked: recipient not verified")
-        return
+        raise ValueError("Blocked: recipient not verified")
 
     sig = encrypt_id(user_id)
     add_watermark(filepath, name, email, user_id, sig)

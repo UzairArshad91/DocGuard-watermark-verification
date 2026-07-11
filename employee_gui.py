@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from employee import send_document
 import sqlite3
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 from dlp_utils import VERIFIED_RECIPIENTS
 import os
 import subprocess, sys
@@ -11,6 +11,7 @@ import time
 def open_employee_gui(uid, uname):
     root = ctk.CTk()
     root.geometry("700x900")
+    status_clear_job = None
 
     conn = sqlite3.connect("logs.db", timeout=10)
     cur = conn.cursor()
@@ -23,9 +24,56 @@ def open_employee_gui(uid, uname):
         path.delete(0, "end")
         path.insert(0, f)
 
+    def clear_status():
+        nonlocal status_clear_job
+        status.configure(text="")
+        status_clear_job = None
+
+    def set_status(message, clear_after_ms=2000):
+        nonlocal status_clear_job
+        if status_clear_job is not None:
+            root.after_cancel(status_clear_job)
+            status_clear_job = None
+        status.configure(text=message)
+        if message:
+            status_clear_job = root.after(clear_after_ms, clear_status)
+
     def send():
-        send_document(path.get(), uid, uname, uemail, recipient.get(), pin.get())
-        status.configure(text="Sent")
+        file_path = path.get().strip()
+        if not file_path:
+            set_status("File path is required", clear_after_ms=4000)
+            return
+        if not os.path.isfile(file_path):
+            set_status("File path is invalid or file does not exist", clear_after_ms=4000)
+            return
+        recipient_value = recipient.get().strip()
+        if not recipient_value:
+            set_status("Recipient is required", clear_after_ms=4000)
+            return
+        if recipient_value not in VERIFIED_RECIPIENTS:
+            set_status("Recipient must be selected from the verified list", clear_after_ms=4000)
+            return
+        if not pin.get().strip():
+            set_status("PIN is required", clear_after_ms=4000)
+            return
+
+        file_name = os.path.basename(file_path)
+        confirm = messagebox.askyesno(
+            "Confirm Send",
+            f"Do you want to send {file_name} to {recipient_value}?"
+        )
+        if not confirm:
+            return
+
+        try:
+            send_document(file_path, uid, uname, uemail, recipient_value, pin.get())
+        except ValueError as exc:
+            set_status(str(exc), clear_after_ms=4000)
+            return
+        except Exception as exc:
+            set_status(f"Send failed: {exc}", clear_after_ms=4000)
+            return
+        set_status("Sent")
 
     def view_history():
         box.delete("1.0", "end")
@@ -67,7 +115,7 @@ def open_employee_gui(uid, uname):
     ctk.CTkLabel(form, text=f"Email: {uemail}").grid(row=1, column=0, columnspan=3, pady=8)
 
     ctk.CTkLabel(form, text="Recipient").grid(row=2, column=0, padx=8, pady=8, sticky="e")
-    recipient = ctk.CTkComboBox(form, values=VERIFIED_RECIPIENTS, width=420); recipient.grid(row=2, column=1, columnspan=2, padx=8, pady=8)
+    recipient = ctk.CTkComboBox(form, values=VERIFIED_RECIPIENTS, width=420, state="readonly"); recipient.grid(row=2, column=1, columnspan=2, padx=8, pady=8)
 
     ctk.CTkLabel(form, text="PIN").grid(row=3, column=0, padx=8, pady=8, sticky="e")
     pin = ctk.CTkEntry(form, width=420, show="*"); pin.grid(row=3, column=1, columnspan=2, padx=8, pady=8)

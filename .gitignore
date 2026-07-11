@@ -27,3 +27,6 @@ Thumbs.db
 # Test files
 test_*.py
 testing.py
+
+#doc files
+a.docx
