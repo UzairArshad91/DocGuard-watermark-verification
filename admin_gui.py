@@ -249,6 +249,9 @@ def open_admin_gui(uid, on_logout=None):
 
 
     def send_mail(win):
+        import importlib, dlp_utils
+        importlib.reload(dlp_utils)
+        
         def browse():
             f = filedialog.askopenfilename()
             path.delete(0, "end")
@@ -270,7 +273,7 @@ def open_admin_gui(uid, on_logout=None):
                 status.configure(text="Recipient is required")
                 messagebox.showwarning("No recipient", "Please select a recipient.")
                 return
-            if not is_verified_recipient(recipient_value):
+            if recipient_value not in dlp_utils.VERIFIED_RECIPIENTS:
                 status.configure(text="Blocked: recipient not verified")
                 messagebox.showwarning("Blocked", "Recipient not verified")
                 return
@@ -325,7 +328,7 @@ def open_admin_gui(uid, on_logout=None):
         ctk.CTkLabel(form, text=f"Email: {uemail}").grid(row=1, column=0, columnspan=3, pady=10)
 
         ctk.CTkLabel(form, text="Recipient").grid(row=2, column=0, padx=8, pady=8, sticky="e")
-        recipient = ctk.CTkComboBox(form, values=VERIFIED_RECIPIENTS, width=420, state="readonly"); recipient.grid(row=2, column=1, columnspan=2, padx=8, pady=8)
+        recipient = ctk.CTkComboBox(form, values=dlp_utils.VERIFIED_RECIPIENTS, width=420, state="readonly"); recipient.grid(row=2, column=1, columnspan=2, padx=8, pady=8)
 
         ctk.CTkLabel(form, text="PIN").grid(row=3, column=0, padx=8, pady=8, sticky="e")
         pin = ctk.CTkEntry(form, width=420, show="*"); pin.grid(row=3, column=1, columnspan=2, padx=8, pady=8)

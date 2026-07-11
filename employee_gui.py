@@ -9,6 +9,8 @@ import time
 
 
 def open_employee_gui(uid, uname, on_logout=None):
+    import importlib, dlp_utils
+    importlib.reload(dlp_utils)
     root = ctk.CTk()
     root.geometry("700x900")
     status_clear_job = None
@@ -50,7 +52,7 @@ def open_employee_gui(uid, uname, on_logout=None):
         if not recipient_value:
             set_status("Recipient is required", clear_after_ms=4000)
             return
-        if recipient_value not in VERIFIED_RECIPIENTS:
+        if recipient_value not in dlp_utils.VERIFIED_RECIPIENTS:
             set_status("Recipient must be selected from the verified list", clear_after_ms=4000)
             return
         if not pin.get().strip():
@@ -115,7 +117,7 @@ def open_employee_gui(uid, uname, on_logout=None):
     ctk.CTkLabel(form, text=f"Email: {uemail}").grid(row=1, column=0, columnspan=3, pady=8)
 
     ctk.CTkLabel(form, text="Recipient").grid(row=2, column=0, padx=8, pady=8, sticky="e")
-    recipient = ctk.CTkComboBox(form, values=VERIFIED_RECIPIENTS, width=420, state="readonly"); recipient.grid(row=2, column=1, columnspan=2, padx=8, pady=8)
+    recipient = ctk.CTkComboBox(form, values=dlp_utils.VERIFIED_RECIPIENTS, width=420, state="readonly"); recipient.grid(row=2, column=1, columnspan=2, padx=8, pady=8)
 
     ctk.CTkLabel(form, text="PIN").grid(row=3, column=0, padx=8, pady=8, sticky="e")
     pin = ctk.CTkEntry(form, width=420, show="*"); pin.grid(row=3, column=1, columnspan=2, padx=8, pady=8)
