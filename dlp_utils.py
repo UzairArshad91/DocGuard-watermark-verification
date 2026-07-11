@@ -1,4 +1,4 @@
-VERIFIED_RECIPIENTS = ["ea16826@gmail.com", "uzairarshad113@gmail.com", "1"]
+VERIFIED_RECIPIENTS = ["ea16826@gmail.com", "uzairarshad113@gmail.com", "1", "2"]
 BLOCKED_SITES = ["chat.openai.com", "drive.google.com"]
 
 def is_verified_recipient(email):
