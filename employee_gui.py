@@ -1,154 +1,251 @@
-import customtkinter as ctk
-from employee import send_document
-import sqlite3
-from tkinter import filedialog, messagebox
-from dlp_utils import VERIFIED_RECIPIENTS
+import importlib
 import os
-import subprocess, sys
-import time
+import sqlite3
+
+from PySide6.QtCore import QTimer, Qt
+from PySide6.QtWidgets import (
+    QFileDialog,
+    QComboBox,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
+
+import dlp_utils
+from employee import send_document
+
+
+STYLE = """
+QMainWindow { background: #11161C; }
+QLabel#brand { color: #55C2A3; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
+QLabel#title { color: #F3F6F8; font-size: 26px; font-weight: 700; }
+QLabel#subtitle, QLabel#fieldLabel, QLabel#account { color: #95A4B2; }
+QLabel#status { color: #55C2A3; }
+QLineEdit, QComboBox, QTextEdit { background: #202B36; color: #F3F6F8; border: 1px solid #31404D; border-radius: 6px; padding: 8px 10px; }
+QLineEdit:focus, QComboBox:focus, QTextEdit:focus { border: 2px solid #55C2A3; }
+QPushButton { background: #202B36; color: #F3F6F8; border: 1px solid #31404D; border-radius: 7px; padding: 8px 14px; min-height: 34px; }
+QPushButton:hover { background: #31404D; }
+QPushButton#primary { background: #55C2A3; color: #10211D; border: none; font-weight: 600; }
+QPushButton#primary:hover { background: #43A98E; }
+QPushButton#danger { background: #E68181; color: #10211D; border: none; font-weight: 600; }
+QPushButton#danger:hover { background: #C76666; }
+"""
 
 
 def open_employee_gui(uid, uname, on_logout=None):
-    import importlib, dlp_utils
     importlib.reload(dlp_utils)
-    root = ctk.CTk()
-    root.geometry("700x900")
-    status_clear_job = None
-
     conn = sqlite3.connect("logs.db", timeout=10)
     cur = conn.cursor()
     cur.execute("SELECT email FROM Users WHERE user_id=?", (uid,))
-    uemail = cur.fetchone()[0]
+    user_row = cur.fetchone()
     conn.close()
+    uemail = user_row[0] if user_row else ""
 
-    def browse():
-        f = filedialog.askopenfilename()
-        path.delete(0, "end")
-        path.insert(0, f)
+    window = EmployeeWindow(uid, uname, uemail, on_logout)
+    window.show()
+    window.raise_()
+    window.activateWindow()
+    return window
 
-    def clear_status():
-        nonlocal status_clear_job
-        status.configure(text="")
-        status_clear_job = None
 
-    def set_status(message, clear_after_ms=2000):
-        nonlocal status_clear_job
-        if status_clear_job is not None:
-            root.after_cancel(status_clear_job)
-            status_clear_job = None
-        status.configure(text=message)
+class EmployeeWindow(QMainWindow):
+    def __init__(self, uid, uname, uemail, on_logout=None):
+        super().__init__()
+        self.uid = uid
+        self.uname = uname
+        self.uemail = uemail
+        self.on_logout = on_logout
+        self.logout_handled = False
+        self.status_timer = QTimer(self)
+        self.status_timer.setSingleShot(True)
+        self.status_timer.timeout.connect(self.status_clear)
+        self.setWindowTitle("DocGuard | Employee workspace")
+        self.setMinimumSize(760, 700)
+        self.resize(900, 780)
+        self.setStyleSheet(STYLE)
+        self.build_ui()
+
+    def build_ui(self):
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(48, 36, 48, 36)
+        layout.setSpacing(12)
+
+        header = QHBoxLayout()
+        brand = QLabel("DOCGUARD")
+        brand.setObjectName("brand")
+        header.addWidget(brand)
+        header.addStretch()
+        account = QLabel(f"Signed in as {self.uname}")
+        account.setObjectName("account")
+        header.addWidget(account)
+        layout.addLayout(header)
+
+        title = QLabel("Employee workspace")
+        title.setObjectName("title")
+        layout.addWidget(title)
+        subtitle = QLabel("Send protected documents and review your activity.")
+        subtitle.setObjectName("subtitle")
+        layout.addWidget(subtitle)
+        layout.addSpacing(12)
+
+        form = QFormLayout()
+        form.setHorizontalSpacing(18)
+        form.setVerticalSpacing(12)
+        self.path = QLineEdit()
+        self.path.setPlaceholderText("Choose a document")
+        browse_button = QPushButton("Browse")
+        browse_button.clicked.connect(self.browse)
+        file_row = QHBoxLayout()
+        file_row.addWidget(self.path)
+        file_row.addWidget(browse_button)
+        file_widget = QWidget()
+        file_widget.setLayout(file_row)
+        form.addRow(self.field_label("Document"), file_widget)
+
+        email = QLabel(self.uemail)
+        email.setObjectName("account")
+        form.addRow(self.field_label("Account email"), email)
+
+        self.recipient = QComboBox()
+        self.recipient.addItem("Select a verified recipient")
+        self.recipient.addItems(dlp_utils.VERIFIED_RECIPIENTS)
+        form.addRow(self.field_label("Recipient"), self.recipient)
+
+        self.pin = QLineEdit()
+        self.pin.setEchoMode(QLineEdit.Password)
+        self.pin.setPlaceholderText("Enter your PIN")
+        form.addRow(self.field_label("PIN"), self.pin)
+        layout.addLayout(form)
+
+        send_button = QPushButton("Send document")
+        send_button.setObjectName("primary")
+        send_button.clicked.connect(self.send)
+        layout.addWidget(send_button)
+        self.status = QLabel("")
+        self.status.setObjectName("status")
+        layout.addWidget(self.status)
+
+        actions = QHBoxLayout()
+        for text, handler in (
+            ("My alerts", self.view_alerts),
+            ("My history", self.view_history),
+            ("Verified recipients", self.view_recipients),
+        ):
+            button = QPushButton(text)
+            button.clicked.connect(handler)
+            actions.addWidget(button)
+        layout.addLayout(actions)
+
+        self.box = QTextEdit()
+        self.box.setReadOnly(True)
+        self.box.setMinimumHeight(230)
+        layout.addWidget(self.box, stretch=1)
+
+        logout_button = QPushButton("Logout")
+        logout_button.setObjectName("danger")
+        logout_button.clicked.connect(self.logout)
+        layout.addWidget(logout_button, alignment=Qt.AlignHCenter)
+        self.setCentralWidget(content)
+
+    @staticmethod
+    def field_label(text):
+        label = QLabel(text)
+        label.setObjectName("fieldLabel")
+        return label
+
+    def browse(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Choose document")
+        if file_path:
+            self.path.setText(file_path)
+
+    def set_status(self, message, clear_after_ms=2000):
+        self.status_timer.stop()
+        self.status.setText(message)
         if message:
-            status_clear_job = root.after(clear_after_ms, clear_status)
+            self.status_timer.start(clear_after_ms)
 
-    def send():
-        file_path = path.get().strip()
+    def status_clear(self):
+        self.status.clear()
+
+    def send(self):
+        file_path = self.path.text().strip()
         if not file_path:
-            set_status("File path is required", clear_after_ms=4000)
+            self.set_status("File path is required", 4000)
             return
         if not os.path.isfile(file_path):
-            set_status("File path is invalid or file does not exist", clear_after_ms=4000)
+            self.set_status("File path is invalid or file does not exist", 4000)
             return
-        recipient_value = recipient.get().strip()
+        recipient_value = self.recipient.currentText().strip()
+        if recipient_value == "Select a verified recipient":
+            recipient_value = ""
         if not recipient_value:
-            set_status("Recipient is required", clear_after_ms=4000)
+            self.set_status("Recipient is required", 4000)
             return
         if recipient_value not in dlp_utils.VERIFIED_RECIPIENTS:
-            set_status("Recipient must be selected from the verified list", clear_after_ms=4000)
+            self.set_status("Recipient must be selected from the verified list", 4000)
             return
-        if not pin.get().strip():
-            set_status("PIN is required", clear_after_ms=4000)
+        if not self.pin.text().strip():
+            self.set_status("PIN is required", 4000)
             return
 
         file_name = os.path.basename(file_path)
-        confirm = messagebox.askyesno(
-            "Confirm Send",
-            f"Do you want to send {file_name} to {recipient_value}?"
+        confirm = QMessageBox.question(
+            self,
+            "Confirm send",
+            f"Do you want to send {file_name} to {recipient_value}?",
+            QMessageBox.Yes | QMessageBox.No,
         )
-        if not confirm:
+        if confirm != QMessageBox.Yes:
             return
-
         try:
-            send_document(file_path, uid, uname, uemail, recipient_value, pin.get())
+            send_document(file_path, self.uid, self.uname, self.uemail, recipient_value, self.pin.text())
         except ValueError as exc:
-            set_status(str(exc), clear_after_ms=4000)
+            self.set_status(str(exc), 4000)
             return
         except Exception as exc:
-            set_status(f"Send failed: {exc}", clear_after_ms=4000)
+            self.set_status(f"Send failed: {exc}", 4000)
             return
-        set_status("Sent")
+        self.set_status("Sent")
 
-    def view_history():
-        box.delete("1.0", "end")
+    def view_history(self):
+        self.box.clear()
         conn = sqlite3.connect("logs.db", timeout=10)
         cur = conn.cursor()
-        cur.execute("SELECT * FROM Logs WHERE user_id=?", (uid,))
-        for row in cur.fetchall():
-            box.insert("end", f"{row}\n")
+        cur.execute("SELECT * FROM Logs WHERE user_id=?", (self.uid,))
+        self.box.setPlainText("\n".join(str(row) for row in cur.fetchall()))
         conn.close()
 
-    def view_alerts():
-        box.delete("1.0", "end")
+    def view_alerts(self):
+        self.box.clear()
         conn = sqlite3.connect("logs.db", timeout=10)
         cur = conn.cursor()
-        cur.execute("SELECT * FROM Alerts WHERE user_id=?", (uid,))
-        for row in cur.fetchall():
-            box.insert("end", f"{row}\n")
+        cur.execute("SELECT * FROM Alerts WHERE user_id=?", (self.uid,))
+        self.box.setPlainText("\n".join(str(row) for row in cur.fetchall()))
         conn.close()
 
-    def view_recipients():
-        box.delete("1.0", "end")
-        from dlp_utils import VERIFIED_RECIPIENTS
-        for r in VERIFIED_RECIPIENTS:
-            box.insert("end", f"{r}\n")
+    def view_recipients(self):
+        self.box.setPlainText("\n".join(dlp_utils.VERIFIED_RECIPIENTS))
 
-    # centered content frame for responsive layout
-    container = ctk.CTkFrame(root)
-    container.pack(expand=True, fill="both", padx=30, pady=20)
+    def logout(self):
+        with open("current_session.txt", "w") as session_file:
+            session_file.write("0")
+        if self.on_logout is not None and not self.logout_handled:
+            self.logout_handled = True
+            self.on_logout()
+        self.close()
 
-    # centered container and form for a cleaner layout
-    form = ctk.CTkFrame(container)
-    form.pack(pady=8, fill="x")
-    form.grid_columnconfigure(1, weight=1)
-
-    ctk.CTkLabel(form, text="File Path").grid(row=0, column=0, padx=8, pady=8, sticky="e")
-    path = ctk.CTkEntry(form, width=420); path.grid(row=0, column=1, padx=8, pady=8)
-    ctk.CTkButton(form, text="Browse", command=browse).grid(row=0, column=2, padx=8, pady=8)
-
-    ctk.CTkLabel(form, text=f"Email: {uemail}").grid(row=1, column=0, columnspan=3, pady=8)
-
-    ctk.CTkLabel(form, text="Recipient").grid(row=2, column=0, padx=8, pady=8, sticky="e")
-    recipient = ctk.CTkComboBox(form, values=dlp_utils.VERIFIED_RECIPIENTS, width=420, state="readonly"); recipient.grid(row=2, column=1, columnspan=2, padx=8, pady=8)
-
-    ctk.CTkLabel(form, text="PIN").grid(row=3, column=0, padx=8, pady=8, sticky="e")
-    pin = ctk.CTkEntry(form, width=420, show="*"); pin.grid(row=3, column=1, columnspan=2, padx=8, pady=8)
-
-    ctk.CTkButton(container, text="Send Document", command=send).pack(pady=10)
-    status = ctk.CTkLabel(container, text=""); status.pack(pady=6)
-
-    # action buttons in a horizontal row
-    actions = ctk.CTkFrame(container)
-    actions.pack(pady=8)
-    ctk.CTkButton(actions, text="View My Alerts", command=view_alerts).pack(side="left", padx=8)
-    ctk.CTkButton(actions, text="View My History", command=view_history).pack(side="left", padx=8)
-    ctk.CTkButton(actions, text="View Verified Recipients", command=view_recipients).pack(side="left", padx=8)
-
-    box = ctk.CTkTextbox(container, width=640, height=220); box.pack(pady=8)
-
-    def logout():
-        with open("current_session.txt", "w") as f:
-            f.write("0")
-        if on_logout is not None:
-            on_logout()
-        root.destroy()
-
-    ctk.CTkButton(container, text="Logout", command=logout).pack(pady=(2, 8))
-
-    def on_close():
-        with open("current_session.txt", "w") as f:
-            f.write("0")
-        if on_logout is not None:
-            on_logout()
-        root.destroy()
-
-    root.protocol("WM_DELETE_WINDOW", on_close)
-    root.mainloop()
+    def closeEvent(self, event):
+        with open("current_session.txt", "w") as session_file:
+            session_file.write("0")
+        if self.on_logout is not None and not self.logout_handled:
+            self.logout_handled = True
+            self.on_logout()
+        event.accept()

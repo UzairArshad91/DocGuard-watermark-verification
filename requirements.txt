@@ -1,0 +1,11 @@
+PySide6
+Flask
+cryptography
+openpyxl
+pypdf
+python-docx
+pyperclip
+reportlab
+requests
+resend
+watchdog
