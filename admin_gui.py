@@ -4,7 +4,7 @@ import os
 import re
 import sqlite3
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -27,30 +27,56 @@ import dlp_utils
 from employee import send_document
 
 
-STYLE = """
-QMainWindow, QDialog { background: #11161C; }
+DARK_STYLE = """
+QMainWindow, QDialog, QWidget { background: #11161C; }
 QLabel#brand { color: #55C2A3; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
-QLabel#title { color: #F3F6F8; font-size: 26px; font-weight: 700; }
+QLabel#title { color: #F3F6F8; font-size: 28px; font-weight: 700; }
 QLabel#subtitle, QLabel#fieldLabel, QLabel#status { color: #95A4B2; }
 QLabel#success { color: #55C2A3; }
 QLabel#error { color: #E68181; }
+QFrame#panel { background: #1A222B; border: 1px solid #31404D; border-radius: 12px; }
 QLineEdit, QComboBox, QTextEdit, QListWidget { background: #202B36; color: #F3F6F8; border: 1px solid #31404D; border-radius: 6px; padding: 8px 10px; }
 QLineEdit:focus, QComboBox:focus, QTextEdit:focus, QListWidget:focus { border: 2px solid #55C2A3; }
 QPushButton { background: #202B36; color: #F3F6F8; border: 1px solid #31404D; border-radius: 7px; padding: 8px 14px; min-height: 34px; }
 QPushButton:hover { background: #31404D; }
-QPushButton#primary { background: #55C2A3; color: #10211D; border: none; font-weight: 600; }
+QPushButton#primary { background: #55C2A3; color: #10211D; font-weight: 600; border: none; }
 QPushButton#primary:hover { background: #43A98E; }
-QPushButton#danger { background: #E68181; color: #10211D; border: none; font-weight: 600; }
+QPushButton#secondary { background: #202B36; color: #F3F6F8; border: 1px solid #31404D; }
+QPushButton#secondary:hover { background: #31404D; }
+QPushButton#danger { background: #E68181; color: #10211D; font-weight: 600; border: none; }
 QPushButton#danger:hover { background: #C76666; }
 """
+
+LIGHT_STYLE = """
+QMainWindow, QDialog, QWidget { background: #F3F6F8; }
+QLabel#brand { color: #16866C; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
+QLabel#title { color: #17212B; font-size: 28px; font-weight: 700; }
+QLabel#subtitle, QLabel#fieldLabel, QLabel#status { color: #60707D; }
+QLabel#success { color: #16866C; }
+QLabel#error { color: #C74747; }
+QFrame#panel { background: #FFFFFF; border: 1px solid #D5DEE5; border-radius: 12px; }
+QLineEdit, QComboBox, QTextEdit, QListWidget { background: #EEF2F5; color: #17212B; border: 1px solid #D5DEE5; border-radius: 6px; padding: 8px 10px; }
+QLineEdit:focus, QComboBox:focus, QTextEdit:focus, QListWidget:focus { border: 2px solid #16866C; }
+QPushButton { background: #EEF2F5; color: #17212B; border: 1px solid #D5DEE5; border-radius: 7px; padding: 8px 14px; min-height: 34px; }
+QPushButton:hover { background: #D5DEE5; }
+QPushButton#primary { background: #16866C; color: #FFFFFF; font-weight: 600; border: none; }
+QPushButton#primary:hover { background: #116A56; }
+QPushButton#secondary { background: #EEF2F5; color: #17212B; border: 1px solid #D5DEE5; }
+QPushButton#secondary:hover { background: #D5DEE5; }
+QPushButton#danger { background: #C74747; color: #FFFFFF; font-weight: 600; border: none; }
+QPushButton#danger:hover { background: #A93636; }
+"""
+
+# For backwards compatibility
+STYLE = DARK_STYLE
 
 
 def get_conn():
     return sqlite3.connect("logs.db", timeout=10)
 
 
-def open_admin_gui(uid, on_logout=None):
-    window = AdminWindow(uid, on_logout)
+def open_admin_gui(uid, on_logout=None, dark_mode=True, light_style="", dark_style=""):
+    window = AdminWindow(uid, on_logout, dark_mode, light_style, dark_style)
     window.show()
     window.raise_()
     window.activateWindow()
@@ -76,15 +102,18 @@ class AdminDialog(QDialog):
 
 
 class AdminWindow(QMainWindow):
-    def __init__(self, uid, on_logout=None):
+    def __init__(self, uid, on_logout=None, dark_mode=True, light_style="", dark_style=""):
         super().__init__()
         self.uid = uid
         self.on_logout = on_logout
         self.logout_handled = False
+        self.dark_mode = dark_mode
+        self.light_style = light_style if light_style else LIGHT_STYLE
+        self.dark_style = dark_style if dark_style else DARK_STYLE
         self.setWindowTitle("DocGuard | Admin workspace")
         self.setMinimumSize(760, 700)
         self.resize(860, 780)
-        self.setStyleSheet(STYLE)
+        self.setStyleSheet(self.dark_style if self.dark_mode else self.light_style)
         self.build_ui()
 
     def build_ui(self):
@@ -95,7 +124,14 @@ class AdminWindow(QMainWindow):
 
         brand = QLabel("DOCGUARD")
         brand.setObjectName("brand")
-        layout.addWidget(brand)
+        header = QHBoxLayout()
+        header.addWidget(brand)
+        header.addStretch()
+        theme_button = QPushButton("☀" if self.dark_mode else "🌙")
+        theme_button.setMaximumWidth(40)
+        theme_button.clicked.connect(self.toggle_theme)
+        header.addWidget(theme_button)
+        layout.addLayout(header)
         title = QLabel("Admin workspace")
         title.setObjectName("title")
         layout.addWidget(title)
@@ -192,10 +228,17 @@ class AdminWindow(QMainWindow):
         def clear_content():
             old_layout = content.layout()
             if old_layout:
-                while old_layout.count():
-                    item = old_layout.takeAt(0)
-                    if item.widget():
-                        item.widget().deleteLater()
+                def clear(lay):
+                    while lay.count():
+                        item = lay.takeAt(0)
+                        w = item.widget()
+                        if w:
+                            w.deleteLater()
+                        else:
+                            sub = item.layout()
+                            if sub:
+                                clear(sub)
+                clear(old_layout)
             else:
                 content.setLayout(QVBoxLayout())
             return content.layout()
@@ -321,6 +364,9 @@ class AdminWindow(QMainWindow):
         status = QLabel("")
         status.setObjectName("status")
         dialog.layout.addWidget(status)
+        status_timer = QTimer(dialog)
+        status_timer.setSingleShot(True)
+        status_timer.timeout.connect(status.clear)
         update = QPushButton("Update PIN")
         update.setObjectName("primary")
         dialog.layout.addWidget(update)
@@ -328,18 +374,22 @@ class AdminWindow(QMainWindow):
         def submit():
             if not user_id.text().strip():
                 status.setText("User ID is required")
+                status_timer.start(2000)
                 return
             if not new_pin.text().strip():
                 status.setText("New PIN is required")
+                status_timer.start(2000)
                 return
             conn = get_conn()
             target = conn.execute("SELECT 1 FROM Users WHERE user_id=?", (user_id.text().strip(),)).fetchone()
             if not target:
                 status.setText("User not found")
+                status_timer.start(2000)
             else:
                 conn.execute("UPDATE Users SET pin=? WHERE user_id=?", (new_pin.text(), user_id.text().strip()))
                 conn.commit()
                 status.setText("PIN updated")
+                status_timer.start(2000)
             conn.close()
 
         update.clicked.connect(submit)
@@ -443,15 +493,26 @@ class AdminWindow(QMainWindow):
         def add():
             email = new_recipient.text().strip()
             emails = read_recipients()
-            if email and email not in emails:
-                emails.append(email)
-                write_recipients(emails)
+            if not email:
+                return
+            if email in emails:
+                import PySide6.QtWidgets
+                QMessageBox.warning(dialog, "Duplicate", f"'{email}' is already in the recipients list")
+                return
+            emails.append(email)
+            write_recipients(emails)
             new_recipient.clear()
             refresh()
 
         def delete():
             email = delete_recipient.text().strip()
-            write_recipients([item for item in read_recipients() if item != email])
+            if not email:
+                return
+            emails = read_recipients()
+            if email not in emails:
+                QMessageBox.warning(dialog, "Not found", f"'{email}' not found in recipients list")
+                return
+            write_recipients([item for item in emails if item != email])
             delete_recipient.clear()
             refresh()
 
@@ -462,12 +523,13 @@ class AdminWindow(QMainWindow):
 
     def export_logs(self):
         conn = get_conn()
-        rows = conn.execute("SELECT * FROM Logs").fetchall()
+        rows = conn.execute("SELECT Logs.log_id, Documents.filename, Logs.user_id, Logs.action, Logs.recipient, Logs.timestamp FROM Logs JOIN Documents ON Logs.doc_id = Documents.doc_id").fetchall()
         conn.close()
         with open("logs_export.csv", "w", newline="") as output:
             writer = csv.writer(output)
-            writer.writerow(["log_id", "doc_id", "user_id", "action", "recipient", "timestamp"])
-            writer.writerows(rows)
+            writer.writerow(["log_id", "document", "user_id", "action", "recipient", "timestamp"])
+            for row in rows:
+                writer.writerow((row[0], os.path.basename(row[1]), row[2], row[3], row[4], row[5]))
         self.export_status.setText("Exported to logs_export.csv")
 
     def logout(self):
@@ -477,6 +539,10 @@ class AdminWindow(QMainWindow):
             self.logout_handled = True
             self.on_logout()
         self.close()
+
+    def toggle_theme(self):
+        self.dark_mode = not self.dark_mode
+        self.setStyleSheet(self.dark_style if self.dark_mode else self.light_style)
 
     def closeEvent(self, event):
         with open("current_session.txt", "w") as session_file:

@@ -20,43 +20,56 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+
+
 LIGHT_STYLE = """
-QMainWindow, QDialog { background: #F3F6F8; }
+QMainWindow, QDialog, QWidget { background: #F3F6F8; }
 QLabel#brand { color: #16866C; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
 QLabel#title { color: #17212B; font-size: 28px; font-weight: 700; }
-QLabel#subtitle, QLabel#fieldLabel { color: #60707D; }
+QLabel#subtitle, QLabel#fieldLabel, QLabel#account, QLabel#status { color: #60707D; }
 QLabel#panelTitle { color: #17212B; font-size: 19px; font-weight: 700; }
-QFrame#panel { background: #FFFFFF; border: 1px solid #D5DEE5; border-radius: 12px; }
-QLineEdit { background: #EEF2F5; color: #17212B; border: 1px solid #D5DEE5; border-radius: 6px; padding: 0 11px; min-height: 38px; }
-QLineEdit:focus { border: 2px solid #16866C; }
-QPushButton { border-radius: 7px; padding: 0 16px; min-height: 36px; }
-QPushButton#primary { background: #16866C; color: #FFFFFF; font-weight: 600; }
-QPushButton#primary:hover { background: #116A56; }
-QPushButton#secondary { background: #EEF2F5; color: #17212B; }
-QPushButton#secondary:hover { background: #D5DEE5; }
-QPushButton#danger { background: #C74747; color: #FFFFFF; font-weight: 600; }
-QPushButton#danger:hover { background: #A93636; }
+QLabel#success { color: #16866C; }
 QLabel#error { color: #C74747; }
+QFrame#panel { background: #FFFFFF; border: 1px solid #D5DEE5; border-radius: 12px; }
+QLineEdit, QComboBox, QTextEdit, QListWidget { background: #EEF2F5; color: #17212B; border: 1px solid #D5DEE5; border-radius: 6px; padding: 8px 10px; }
+QLineEdit:focus, QComboBox:focus, QTextEdit:focus, QListWidget:focus { border: 2px solid #16866C; }
+QPushButton { background: #EEF2F5; color: #17212B; border: 1px solid #D5DEE5; border-radius: 7px; padding: 8px 14px; min-height: 34px; }
+QPushButton:hover { background: #D5DEE5; }
+QPushButton#primary { background: #16866C; color: #FFFFFF; font-weight: 600; border: none; }
+QPushButton#primary:hover { background: #116A56; }
+QPushButton#secondary { background: #EEF2F5; color: #17212B; border: 1px solid #D5DEE5; }
+QPushButton#secondary:hover { background: #D5DEE5; }
+QPushButton#danger { background: #C74747; color: #FFFFFF; font-weight: 600; border: none; }
+QPushButton#danger:hover { background: #A93636; }
+QTableWidget, QTableWidget::item { background: #FFFFFF; color: #17212B; border: 1px solid #D5DEE5; }
+QHeaderView::section { background: #EEF2F5; color: #17212B; border: 1px solid #D5DEE5; padding: 4px; }
+QRadioButton, QCheckBox { color: #17212B; }
 """
 
 
 DARK_STYLE = """
-QMainWindow, QDialog { background: #11161C; }
+QMainWindow, QDialog, QWidget { background: #11161C; }
+QLabel { background: transparent; }
 QLabel#brand { color: #55C2A3; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
 QLabel#title { color: #F3F6F8; font-size: 28px; font-weight: 700; }
-QLabel#subtitle, QLabel#fieldLabel { color: #95A4B2; }
+QLabel#subtitle, QLabel#fieldLabel, QLabel#account, QLabel#status { color: #95A4B2; }
 QLabel#panelTitle { color: #F3F6F8; font-size: 19px; font-weight: 700; }
-QFrame#panel { background: #1A222B; border: 1px solid #31404D; border-radius: 12px; }
-QLineEdit { background: #202B36; color: #F3F6F8; border: 1px solid #31404D; border-radius: 6px; padding: 0 11px; min-height: 38px; }
-QLineEdit:focus { border: 2px solid #55C2A3; }
-QPushButton { border-radius: 7px; padding: 0 16px; min-height: 36px; }
-QPushButton#primary { background: #55C2A3; color: #10211D; font-weight: 600; }
-QPushButton#primary:hover { background: #43A98E; }
-QPushButton#secondary { background: #202B36; color: #F3F6F8; }
-QPushButton#secondary:hover { background: #31404D; }
-QPushButton#danger { background: #E68181; color: #10211D; font-weight: 600; }
-QPushButton#danger:hover { background: #C76666; }
+QLabel#success { color: #55C2A3; }
 QLabel#error { color: #E68181; }
+QFrame#panel { background: #1A222B; border: 1px solid #31404D; border-radius: 12px; }
+QLineEdit, QComboBox, QTextEdit, QListWidget { background: #202B36; color: #F3F6F8; border: 1px solid #31404D; border-radius: 6px; padding: 8px 10px; }
+QLineEdit:focus, QComboBox:focus, QTextEdit:focus, QListWidget:focus { border: 2px solid #55C2A3; }
+QPushButton { background: #202B36; color: #F3F6F8; border: 1px solid #31404D; border-radius: 7px; padding: 8px 14px; min-height: 34px; }
+QPushButton:hover { background: #31404D; }
+QPushButton#primary { background: #55C2A3; color: #10211D; font-weight: 600; border: none; }
+QPushButton#primary:hover { background: #43A98E; }
+QPushButton#secondary { background: #202B36; color: #F3F6F8; border: 1px solid #31404D; }
+QPushButton#secondary:hover { background: #31404D; }
+QPushButton#danger { background: #E68181; color: #10211D; font-weight: 600; border: none; }
+QPushButton#danger:hover { background: #C76666; }
+QTableWidget, QTableWidget::item { background: #1A222B; color: #F3F6F8; border: 1px solid #31404D; }
+QHeaderView::section { background: #202B36; color: #F3F6F8; border: 1px solid #31404D; padding: 4px; }
+QRadioButton, QCheckBox { color: #F3F6F8; }
 """
 
 
@@ -105,6 +118,7 @@ class CloseDialog(QDialog):
         actions = QDialogButtonBox()
         cancel = actions.addButton("Cancel", QDialogButtonBox.RejectRole)
         cancel.setObjectName("secondary")
+        cancel.clicked.connect(self.reject)
         confirm = actions.addButton("Close application", QDialogButtonBox.AcceptRole)
         confirm.setObjectName("danger")
         confirm.clicked.connect(self.confirm)
@@ -254,11 +268,11 @@ class LoginWindow(QMainWindow):
         if role == "admin":
             from admin_gui import open_admin_gui
 
-            self.child_window = open_admin_gui(uid, on_logout=self.show_login)
+            self.child_window = open_admin_gui(uid, on_logout=self.show_login, dark_mode=self.dark_mode, light_style=LIGHT_STYLE, dark_style=DARK_STYLE)
         else:
             from employee_gui import open_employee_gui
 
-            self.child_window = open_employee_gui(uid, uname, on_logout=self.show_login)
+            self.child_window = open_employee_gui(uid, uname, on_logout=self.show_login, dark_mode=self.dark_mode, light_style=LIGHT_STYLE, dark_style=DARK_STYLE)
 
     def admin_close(self):
         dialog = CloseDialog(self)
@@ -273,10 +287,12 @@ class LoginWindow(QMainWindow):
 
 
 if __name__ == "__main__":
-    sqlite3.connect("logs.db").execute("PRAGMA journal_mode=WAL;")
-    subprocess.Popen([sys.executable, "main.py"])
-    subprocess.Popen([sys.executable, "service_watchdog.py"])
-    subprocess.Popen([sys.executable, "file_watcher.py"])
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(base_dir)
+    sqlite3.connect(os.path.join(base_dir, "logs.db")).execute("PRAGMA journal_mode=WAL;")
+    subprocess.Popen([sys.executable, os.path.join(base_dir, "main.py")], cwd=base_dir)
+    subprocess.Popen([sys.executable, os.path.join(base_dir, "service_watchdog.py")], cwd=base_dir)
+    subprocess.Popen([sys.executable, os.path.join(base_dir, "file_watcher.py")], cwd=base_dir)
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     window = LoginWindow()

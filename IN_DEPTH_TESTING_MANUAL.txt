@@ -1,0 +1,441 @@
+DOCGUARD WATERMARK VERIFICATION SYSTEM
+IN-DEPTH TESTING MANUAL
+
+============================================================
+1. PREPARE THE ENVIRONMENT
+============================================================
+
+Open PowerShell in the project folder:
+
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+& ".\.venv\Scripts\Activate.ps1"
+
+Verify the interpreter:
+
+python -c "import sys; print(sys.executable)"
+
+The path must contain:
+
+watermark verification system\.venv\Scripts\python.exe
+
+Check dependencies:
+
+python -m pip check
+
+Back up the database before testing:
+
+Copy-Item logs.db logs.db.backup
+
+Use copies of test documents, not production files. Prepare one DOCX,
+one XLSX, and one PDF document.
+
+============================================================
+2. LAUNCH TESTING
+============================================================
+
+Debug launch:
+
+python login_gui.py
+
+Check that:
+- The login window appears.
+- No import errors appear.
+- Flask starts on port 5000.
+- The watchdog and file watcher start.
+
+Normal launch:
+
+Double-click run.vbs.
+
+Check that:
+- The login window appears.
+- The project virtual environment is used.
+- Services start without duplicate login windows.
+
+Use direct Python launch when debugging because pythonw.exe hides errors.
+
+============================================================
+3. LOGIN GUI TESTING
+============================================================
+
+INVALID LOGIN
+1. Enter an incorrect name and PIN.
+2. Click Continue.
+3. Confirm Invalid login appears.
+4. Wait at least 2 seconds.
+5. Confirm the message disappears.
+6. Confirm the window remains open.
+
+ADMIN LOGIN
+1. Enter valid administrator credentials.
+2. Click Continue.
+3. Confirm the login window hides.
+4. Confirm the admin workspace remains visible.
+5. Confirm there is only one admin window.
+
+EMPLOYEE LOGIN
+1. Enter valid employee credentials.
+2. Confirm the employee workspace opens.
+3. Confirm the correct username appears.
+4. Confirm the login window is hidden.
+
+THEME												NO LIGHT THEME IN LOG IN PANEL
+1. Click Light mode.
+2. Confirm the background, text, fields, and buttons change.
+3. Click Dark mode.
+4. Confirm the dark theme returns.
+5. Repeat after resizing the window.
+
+WINDOW SIZE
+1. Resize the login window smaller.
+2. Confirm it cannot go below the minimum size.
+3. Confirm Close app remains visible.
+4. Confirm the theme button remains visible.
+
+ADMIN CLOSE DIALOG					CANCEL BUTTON NOT WORKING
+1. Click Close app.
+2. Confirm the administrator dialog appears.
+3. Enter invalid credentials.
+4. Confirm Access denied appears.
+5. Confirm it disappears after 2 seconds.
+6. Click Cancel and confirm the dialog closes.
+7. Reopen the dialog.
+8. Enter valid administrator credentials.
+9. Click Close application.
+10. Confirm the application exits.
+11. Repeat using Enter in the PIN field.
+
+SESSION CLEANUP
+After logout or application close, open current_session.txt.
+Expected value:
+
+0
+
+============================================================
+4. EMPLOYEE GUI TESTING
+============================================================
+
+Log in as an employee.
+
+BROWSE
+- Click Browse and select a valid document.
+- Confirm the path appears in the field.
+- Cancel the dialog and confirm the current path is unchanged.
+
+VALIDATION
+Test each case separately:
+- Empty document path.
+- Invalid document path.
+- No recipient.
+- Unverified recipient.
+- Empty PIN.
+- Incorrect PIN.
+- Missing user record.
+
+Each case should show a useful message and should not crash.
+
+RECIPIENTS
+- Open the recipient dropdown.
+- Confirm verified recipients appear.
+- Select a valid recipient.
+- Confirm an unverified recipient is rejected.
+
+SEND DOCUMENT													error
+Repeat for DOCX, XLSX, and PDF:
+1. Choose a test document.
+2. Select a verified recipient.
+3. Enter the correct PIN.
+4. Click Send document.
+5. Confirm the send dialog.
+6. Confirm Sent appears.
+7. Confirm the file contains a watermark.
+8. Confirm a Documents row is created.
+9. Confirm a Logs row is created.
+
+Database checks:
+
+SELECT * FROM Documents ORDER BY doc_id DESC;
+SELECT * FROM Logs ORDER BY log_id DESC;
+
+ALERTS
+- Click My alerts.
+- Confirm only the current employee's alerts appear.
+- Test when there are no alerts.
+
+HISTORY
+- Click My history.
+- Confirm only the employee's history appears.
+- Send another document.
+- Refresh history and confirm the new record appears.
+
+VERIFIED RECIPIENTS
+- Click Verified recipients.
+- Confirm the displayed list matches dlp_utils.py.
+
+LOGOUT AND CLOSE
+- Click Logout and confirm the login window returns.
+- Confirm current_session.txt contains 0.
+- Close the employee window with its X button.
+- Confirm the login window returns only once.
+
+============================================================
+5. ADMIN GUI TESTING
+============================================================
+
+Log in as an administrator.
+
+MANAGE USERS - VIEW
+- Open Manage users.
+- Select View users.
+- Confirm registered users are displayed.
+
+MANAGE USERS - ADD									not responding; only worked once
+Test:
+- Valid employee.
+- Valid admin.
+- Missing name.
+- Missing email.
+- Missing PIN.
+- Duplicate email.
+
+Verify the Users table:
+
+SELECT * FROM Users ORDER BY user_id DESC;
+
+MANAGE USERS - DELETE									bugging with add user
+Test:	
+- Valid user ID.
+- Empty user ID.
+- Unknown user ID.
+- Deleting an admin.
+- Deleting the final admin.
+
+VIEW LOGS AND ALERTS
+- Open View all logs.
+- Confirm filenames, user IDs, actions, recipients, and timestamps.
+- Test Refresh.
+- Test Clear records.
+- Cancel the clear confirmation and verify records remain.
+- Confirm the clear action and verify records are deleted.
+- Repeat for View alerts.
+
+SEARCH LOGS
+- Search for a valid employee ID.
+- Confirm only that employee's logs appear.
+- Test an unknown ID.
+- Test pressing Enter in the ID field.
+
+CHANGE PIN											pin updated not going after 2 sec
+Test:
+- Valid user ID and new PIN.
+- Empty user ID.
+- Empty new PIN.
+- Unknown user ID.
+
+Log out and verify the old PIN fails while the new PIN succeeds.
+
+MANAGE RECIPIENTS
+Test:
+- Add a new email.
+- Add a duplicate email.									not telling duplicate
+- Delete an existing email.	
+- Delete a nonexistent email.									not telling nonexistant
+- Refresh the list.
+
+Confirm changes are written to dlp_utils.py.
+
+EXPORT LOGS											timestamp is #######
+- Click Export logs to CSV.									doc id is same as user id should show doc name.extension
+- Confirm logs_export.csv is created.
+- Verify the header and row count.
+- Repeat when there are zero logs.
+
+ADMIN SEND DOCUMENT						ERROR
+Repeat document-send tests for DOCX, XLSX, and PDF:
+- Valid file.
+- Invalid path.
+- Wrong PIN.
+- Empty PIN.
+- Unverified recipient.
+- Cancelled confirmation.
+- Successful send.
+
+ADMIN LOGOUT AND CLOSE
+Test both Logout and the window X button. Confirm the login window returns
+only once.
+
+============================================================
+6. CORE FUNCTION TESTING
+============================================================
+
+hashing.py
+- Hash the same file twice; hashes must match.
+- Modify one byte; the hash must change.
+- verify_hash with the correct hash should return True.
+- verify_hash with a wrong hash should return False.
+- Missing files should raise an error.
+
+Example:
+
+from hashing import get_file_hash, verify_hash
+hash_value = get_file_hash("test.docx")
+print(verify_hash("test.docx", hash_value))
+
+Expected:
+
+True
+
+encrypt.py
+
+from encrypt import encrypt_id, decrypt_id
+token = encrypt_id(123)
+print(decrypt_id(token))
+
+Expected decrypted value:
+
+123
+
+Also test corrupted tokens and invalid tokens.
+
+dlp_utils.py
+
+from dlp_utils import is_verified_recipient, is_blocked_upload
+print(is_verified_recipient("ea16826@gmail.com"))
+print(is_verified_recipient("unknown@example.com"))
+print(is_blocked_upload("https://chat.openai.com/upload"))
+print(is_blocked_upload("https://company-portal.com"))
+
+Expected:
+
+True
+False
+True
+False
+
+Test uppercase, partial domains, empty strings, and malformed URLs.
+
+watermarking.py
+For each DOCX, XLSX, and PDF:
+1. Record the original file hash.
+2. Add a watermark.
+3. Confirm the file remains readable.
+4. Confirm the visible watermark exists.
+5. Confirm signature metadata exists.
+6. Generate the signature hash.
+7. Modify the file.
+8. Confirm the signature hash changes.
+
+DOCX: inspect the footer and core properties.
+XLSX: inspect the A1 comment and workbook description.
+PDF: inspect annotations and /Signature metadata.
+
+employee.py - send_document()
+Test:
+- Empty path.
+- Missing file.
+- Empty recipient.
+- Empty PIN.
+- Unknown user.
+- Wrong PIN.
+- Unverified recipient.
+- Valid DOCX.
+- Valid XLSX.
+- Valid PDF.
+- Unsupported extension.
+- Flask server stopped.
+
+Verify that failures are reported and successful sends create database rows.
+
+============================================================
+7. FLASK API TESTING
+============================================================
+
+Start the API:
+
+python main.py
+
+Use a second PowerShell window.
+
+Test these routes:
+- POST /send
+- POST /verify with matching hash
+- POST /verify with wrong hash
+- POST /log
+- POST /alert
+- GET /admin/logs
+
+For a wrong hash, check:
+
+SELECT * FROM Alerts ORDER BY alert_id DESC;
+
+Warning: /alert and failed verification can send real email through Resend.
+
+============================================================
+8. FILE WATCHER TESTING
+============================================================
+
+1. Start the application.
+2. Send a test document.
+3. Modify the sent document.
+4. Wait at least 3 seconds.
+5. Check the terminal for Modified:.
+6. Check whether verification occurs.
+7. Check Alerts if the hash no longer matches.
+
+Also test:
+- Rapid repeated modifications.
+- Deleting the file.
+- Unsupported extensions.
+- Modifying an unrelated file.
+- Closing the watcher.
+
+============================================================
+9. CLIPBOARD TESTING
+============================================================
+
+Only test if clipboard monitoring is actively started.
+
+1. Copy ordinary text; no alert should occur.
+2. Copy text containing a protected signature.
+3. Confirm an alert or warning appears.
+4. Copy the same text again.
+5. Confirm duplicate behavior is acceptable.
+
+Clipboard alerts may send real emails, so verify configuration first.
+
+============================================================
+10. EXISTING TEST SCRIPTS
+============================================================
+
+Do not run these blindly:
+- test_flow.py
+- test_verify.py
+- test_verify2.py
+
+They may:
+- Send real documents.
+- Use hard-coded credentials.
+- Call the live Flask server.
+- Modify logs.db.
+- Trigger email alerts.
+
+They should eventually be rewritten with temporary databases and test files.
+
+============================================================
+11. ISSUES TO WATCH DURING TESTING
+============================================================
+
+- encrypt.py generates a new key whenever the process starts, so old tokens
+  may not decrypt after a restart.
+- send_document() does not check HTTP response status codes.
+- send_document() logs user_id as doc_id instead of using the document ID
+  returned by /send.
+- Resend testing requires RESEND_API_KEY.
+- Duplicate emails may cause a database exception.
+- gui.py uses hard-coded user ID 1.
+- file_watcher.py monitors files in the project folder.
+- restart.bat terminates all python.exe and pythonw.exe processes, not only
+  this application.
+
+Record every test as PASS, FAIL, or BLOCKED. For failures, record the exact
+error message, the steps used, and the document or account involved.

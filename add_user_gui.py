@@ -18,10 +18,10 @@ from PySide6.QtWidgets import (
 )
 
 
-STYLE = """
+DARK_STYLE = """
 QMainWindow { background: #11161C; }
 QLabel#brand { color: #55C2A3; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
-QLabel#title { color: #F3F6F8; font-size: 26px; font-weight: 700; }
+QLabel#title { color: #F3F6F8; font-size: 28px; font-weight: 700; }
 QLabel#subtitle, QLabel#fieldLabel, QLabel#status { color: #95A4B2; }
 QLabel#success { color: #55C2A3; }
 QLabel#error { color: #E68181; }
@@ -35,6 +35,27 @@ QPushButton#danger { background: #E68181; color: #10211D; border: none; font-wei
 QPushButton#danger:hover { background: #C76666; }
 QRadioButton { color: #F3F6F8; spacing: 8px; }
 """
+
+LIGHT_STYLE = """
+QMainWindow { background: #F3F6F8; }
+QLabel#brand { color: #16866C; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
+QLabel#title { color: #17212B; font-size: 28px; font-weight: 700; }
+QLabel#subtitle, QLabel#fieldLabel, QLabel#status { color: #60707D; }
+QLabel#success { color: #16866C; }
+QLabel#error { color: #C74747; }
+QLineEdit, QListWidget { background: #EEF2F5; color: #17212B; border: 1px solid #D5DEE5; border-radius: 6px; padding: 8px 10px; }
+QLineEdit:focus, QListWidget:focus { border: 2px solid #16866C; }
+QPushButton { background: #EEF2F5; color: #17212B; border: 1px solid #D5DEE5; border-radius: 7px; padding: 8px 14px; min-height: 34px; }
+QPushButton:hover { background: #D5DEE5; }
+QPushButton#primary { background: #16866C; color: #FFFFFF; border: none; font-weight: 600; }
+QPushButton#primary:hover { background: #116A56; }
+QPushButton#danger { background: #C74747; color: #FFFFFF; border: none; font-weight: 600; }
+QPushButton#danger:hover { background: #A93636; }
+QRadioButton { color: #17212B; spacing: 8px; }
+"""
+
+# For backwards compatibility
+STYLE = DARK_STYLE
 
 
 def get_conn():
@@ -72,15 +93,23 @@ class UserManagerWindow(QMainWindow):
         self.show_main_menu()
 
     def clear_content(self):
+        # Remove all items from the layout recursively
         while self.layout.count():
             item = self.layout.takeAt(0)
             if item.widget():
-                item.widget().deleteLater()
+                widget = item.widget()
+                widget.setParent(None)
+                widget.deleteLater()
             elif item.layout():
-                while item.layout().count():
-                    child = item.layout().takeAt(0)
-                    if child.widget():
-                        child.widget().deleteLater()
+                # Recursively clear nested layouts
+                nested_layout = item.layout()
+                while nested_layout.count():
+                    nested_item = nested_layout.takeAt(0)
+                    if nested_item.widget():
+                        widget = nested_item.widget()
+                        widget.setParent(None)
+                        widget.deleteLater()
+                nested_layout.deleteLater()
 
     def add_header(self, title, subtitle):
         brand = QLabel("DOCGUARD")
@@ -162,46 +191,170 @@ class UserManagerWindow(QMainWindow):
                 status.setText("All fields required")
                 return
             role = "admin" if admin.isChecked() else "employee"
-            conn = get_conn()
-            conn.execute("INSERT INTO Users (name, email, pin, role) VALUES (?,?,?,?)", (name.text(), email.text(), pin.text(), role))
-            conn.commit()
-            conn.close()
-            status.setObjectName("success")
-            status.setText("User added")
-            name.clear()
-            email.clear()
-            pin.clear()
+            try:
+                conn = get_conn()
+                conn.execute("INSERT INTO Users (name, email, pin, role) VALUES (?,?,?,?)", (name.text(), email.text(), pin.text(), role))
+                conn.commit()
+                conn.close()
+                status.setObjectName("success")
+                status.setText("User added successfully")
+                name.clear()
+                email.clear()
+                pin.clear()
+                employee.setChecked(True)
+            except Exception as e:
+                status.setObjectName("error")
+                status.setText(f"Error: {str(e)}")
 
         add.clicked.connect(submit)
 
     def show_delete_user(self):
         self.clear_content()
-        self.add_header("Delete user", "Remove an account by its user ID.")
-        form = QFormLayout()
-        user_id = QLineEdit()
-        form.addRow(self.field_label("User ID"), user_id)
-        self.layout.addLayout(form)
+        self.add_header("Remove user account", "Permanently delete a user from the database.")
+        
+        # Warning panel at top
+        warning_panel = QWidget()
+        warning_panel.setObjectName("panel")
+        warning_layout = QVBoxLayout(warning_panel)
+        warning_layout.setContentsMargins(16, 12, 16, 12)
+        warning_label = QLabel("⚠️ WARNING: This action is PERMANENT")
+        warning_label.setObjectName("error")
+        warning_label.setStyleSheet("font-weight: bold; font-size: 13px;")
+        warning_layout.addWidget(warning_label)
+        warning_desc = QLabel("Once deleted, user data cannot be recovered.")
+        warning_desc.setObjectName("subtitle")
+        warning_layout.addWidget(warning_desc)
+        self.layout.addWidget(warning_panel)
+        
+        self.layout.addSpacing(8)
+        
+        # Users scrollable list (center)
+        list_title = QLabel("Available users:")
+        list_title.setObjectName("fieldLabel")
+        self.layout.addWidget(list_title)
+        
+        users_list = QListWidget()
+        users_list.setMinimumHeight(200)
+        users_list.setMaximumHeight(300)
+        self.layout.addWidget(users_list, stretch=1)
+        
+        # Load users
+        conn = get_conn()
+        rows = conn.execute("SELECT user_id, name, role FROM Users ORDER BY user_id").fetchall()
+        conn.close()
+        
+        user_data = {}
+        for row in rows:
+            user_id, name, role = row
+            display_text = f"[{user_id}] {name} - {role.upper()}"
+            users_list.addItem(display_text)
+            user_data[display_text] = user_id
+        
+        if not rows:
+            users_list.addItem("No users in system")
+            users_list.item(0).setFlags(users_list.item(0).flags() & ~Qt.ItemIsSelectable)
+        
+        # Selection info panel
+        info_panel = QWidget()
+        info_panel.setObjectName("panel")
+        info_layout = QVBoxLayout(info_panel)
+        info_layout.setContentsMargins(12, 10, 12, 10)
+        info_label = QLabel("Selected user information will appear here")
+        info_label.setObjectName("subtitle")
+        info_layout.addWidget(info_label)
+        self.layout.addWidget(info_panel)
+        
+        # Status message
         status = QLabel("")
         status.setObjectName("status")
         self.layout.addWidget(status)
-        delete = QPushButton("Delete user")
-        delete.setObjectName("danger")
-        self.layout.addWidget(delete)
-        self.layout.addStretch()
-        self.add_back_button()
+        
+        # Action buttons at bottom
+        button_layout = QVBoxLayout()
+        button_layout.setSpacing(10)
+        
+        delete_btn = QPushButton("🗑️  DELETE SELECTED USER")
+        delete_btn.setObjectName("danger")
+        delete_btn.setMinimumHeight(45)
+        delete_btn.setStyleSheet("font-weight: bold; font-size: 12px;")
+        button_layout.addWidget(delete_btn)
+        
+        cancel_btn = QPushButton("Cancel & Go Back")
+        cancel_btn.setMinimumHeight(36)
+        cancel_btn.clicked.connect(self.show_main_menu)
+        button_layout.addWidget(cancel_btn)
+        
+        self.layout.addLayout(button_layout)
+        
+        def update_info():
+            if not users_list.currentItem() or users_list.currentItem().text() == "No users in system":
+                info_label.setText("No user selected")
+                info_label.setObjectName("subtitle")
+                return
+            selected_text = users_list.currentItem().text()
+            user_id = user_data[selected_text]
+            conn = get_conn()
+            user_info = conn.execute("SELECT name, email, role FROM Users WHERE user_id=?", (user_id,)).fetchone()
+            conn.close()
+            if user_info:
+                name, email, role = user_info
+                info_label.setText(f"📋 ID: {user_id} | Name: {name} | Email: {email} | Role: {role.upper()}")
+                info_label.setObjectName("fieldLabel")
+        
+        users_list.itemSelectionChanged.connect(update_info)
 
         def submit():
-            if not user_id.text().strip():
-                status.setText("User ID is required")
+            if not users_list.currentItem() or users_list.currentItem().text() == "No users in system":
+                status.setText("❌ Please select a user first")
                 return
-            conn = get_conn()
-            conn.execute("DELETE FROM Users WHERE user_id=?", (user_id.text().strip(),))
-            conn.commit()
-            conn.close()
-            status.setObjectName("success")
-            status.setText("User deleted")
+            
+            selected_text = users_list.currentItem().text()
+            user_id = user_data[selected_text]
+            
+            from PySide6.QtWidgets import QMessageBox
+            confirm = QMessageBox.critical(
+                self,
+                "⚠️ CONFIRM DELETION",
+                f"Are you absolutely sure?\n\nUser ID: {user_id}\n\n"
+                "This will permanently delete the user account and cannot be undone!",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if confirm == QMessageBox.Yes:
+                try:
+                    conn = get_conn()
+                    conn.execute("DELETE FROM Users WHERE user_id=?", (user_id,))
+                    conn.commit()
+                    conn.close()
+                    
+                    status.setObjectName("success")
+                    status.setText("✅ User deleted successfully!")
+                    
+                    # Refresh list
+                    users_list.clear()
+                    user_data.clear()
+                    conn = get_conn()
+                    rows = conn.execute("SELECT user_id, name, role FROM Users ORDER BY user_id").fetchall()
+                    conn.close()
+                    
+                    for row in rows:
+                        uid, nm, rl = row
+                        display_text = f"[{uid}] {nm} - {rl.upper()}"
+                        users_list.addItem(display_text)
+                        user_data[display_text] = uid
+                    
+                    if not rows:
+                        users_list.addItem("No users in system")
+                        users_list.item(0).setFlags(users_list.item(0).flags() & ~Qt.ItemIsSelectable)
+                    
+                    info_label.setText("User deleted. Select another user or go back.")
+                    
+                except Exception as e:
+                    status.setObjectName("error")
+                    status.setText(f"❌ Error: {str(e)}")
 
-        delete.clicked.connect(submit)
+        delete_btn.clicked.connect(submit)
 
     @staticmethod
     def field_label(text):

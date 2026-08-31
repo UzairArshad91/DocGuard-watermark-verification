@@ -5,9 +5,10 @@ from datetime import datetime
 import os
 
 app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def get_db():
-    return sqlite3.connect("logs.db", timeout=10)
+    return sqlite3.connect(os.path.join(BASE_DIR, "logs.db"), timeout=10)
 
 @app.route("/send", methods=["POST"])
 def send():

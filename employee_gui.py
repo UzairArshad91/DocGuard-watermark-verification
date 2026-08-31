@@ -22,24 +22,51 @@ import dlp_utils
 from employee import send_document
 
 
-STYLE = """
-QMainWindow { background: #11161C; }
+DARK_STYLE = """
+QMainWindow, QDialog, QWidget { background: #11161C; }
 QLabel#brand { color: #55C2A3; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
-QLabel#title { color: #F3F6F8; font-size: 26px; font-weight: 700; }
-QLabel#subtitle, QLabel#fieldLabel, QLabel#account { color: #95A4B2; }
-QLabel#status { color: #55C2A3; }
-QLineEdit, QComboBox, QTextEdit { background: #202B36; color: #F3F6F8; border: 1px solid #31404D; border-radius: 6px; padding: 8px 10px; }
-QLineEdit:focus, QComboBox:focus, QTextEdit:focus { border: 2px solid #55C2A3; }
+QLabel#title { color: #F3F6F8; font-size: 28px; font-weight: 700; }
+QLabel#subtitle, QLabel#fieldLabel, QLabel#account, QLabel#status { color: #95A4B2; }
+QLabel#success { color: #55C2A3; }
+QLabel#error { color: #E68181; }
+QFrame#panel { background: #1A222B; border: 1px solid #31404D; border-radius: 12px; }
+QLineEdit, QComboBox, QTextEdit, QListWidget { background: #202B36; color: #F3F6F8; border: 1px solid #31404D; border-radius: 6px; padding: 8px 10px; }
+QLineEdit:focus, QComboBox:focus, QTextEdit:focus, QListWidget:focus { border: 2px solid #55C2A3; }
 QPushButton { background: #202B36; color: #F3F6F8; border: 1px solid #31404D; border-radius: 7px; padding: 8px 14px; min-height: 34px; }
 QPushButton:hover { background: #31404D; }
-QPushButton#primary { background: #55C2A3; color: #10211D; border: none; font-weight: 600; }
+QPushButton#primary { background: #55C2A3; color: #10211D; font-weight: 600; border: none; }
 QPushButton#primary:hover { background: #43A98E; }
-QPushButton#danger { background: #E68181; color: #10211D; border: none; font-weight: 600; }
+QPushButton#secondary { background: #202B36; color: #F3F6F8; border: 1px solid #31404D; }
+QPushButton#secondary:hover { background: #31404D; }
+QPushButton#danger { background: #E68181; color: #10211D; font-weight: 600; border: none; }
 QPushButton#danger:hover { background: #C76666; }
 """
 
+LIGHT_STYLE = """
+QMainWindow, QDialog, QWidget { background: #F3F6F8; }
+QLabel#brand { color: #16866C; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
+QLabel#title { color: #17212B; font-size: 28px; font-weight: 700; }
+QLabel#subtitle, QLabel#fieldLabel, QLabel#account, QLabel#status { color: #60707D; }
+QLabel#success { color: #16866C; }
+QLabel#error { color: #C74747; }
+QFrame#panel { background: #FFFFFF; border: 1px solid #D5DEE5; border-radius: 12px; }
+QLineEdit, QComboBox, QTextEdit, QListWidget { background: #EEF2F5; color: #17212B; border: 1px solid #D5DEE5; border-radius: 6px; padding: 8px 10px; }
+QLineEdit:focus, QComboBox:focus, QTextEdit:focus, QListWidget:focus { border: 2px solid #16866C; }
+QPushButton { background: #EEF2F5; color: #17212B; border: 1px solid #D5DEE5; border-radius: 7px; padding: 8px 14px; min-height: 34px; }
+QPushButton:hover { background: #D5DEE5; }
+QPushButton#primary { background: #16866C; color: #FFFFFF; font-weight: 600; border: none; }
+QPushButton#primary:hover { background: #116A56; }
+QPushButton#secondary { background: #EEF2F5; color: #17212B; border: 1px solid #D5DEE5; }
+QPushButton#secondary:hover { background: #D5DEE5; }
+QPushButton#danger { background: #C74747; color: #FFFFFF; font-weight: 600; border: none; }
+QPushButton#danger:hover { background: #A93636; }
+"""
 
-def open_employee_gui(uid, uname, on_logout=None):
+# For backwards compatibility
+STYLE = DARK_STYLE
+
+
+def open_employee_gui(uid, uname, on_logout=None, dark_mode=True, light_style="", dark_style=""):
     importlib.reload(dlp_utils)
     conn = sqlite3.connect("logs.db", timeout=10)
     cur = conn.cursor()
@@ -48,7 +75,7 @@ def open_employee_gui(uid, uname, on_logout=None):
     conn.close()
     uemail = user_row[0] if user_row else ""
 
-    window = EmployeeWindow(uid, uname, uemail, on_logout)
+    window = EmployeeWindow(uid, uname, uemail, on_logout, dark_mode, light_style, dark_style)
     window.show()
     window.raise_()
     window.activateWindow()
@@ -56,20 +83,23 @@ def open_employee_gui(uid, uname, on_logout=None):
 
 
 class EmployeeWindow(QMainWindow):
-    def __init__(self, uid, uname, uemail, on_logout=None):
+    def __init__(self, uid, uname, uemail, on_logout=None, dark_mode=True, light_style="", dark_style=""):
         super().__init__()
         self.uid = uid
         self.uname = uname
         self.uemail = uemail
         self.on_logout = on_logout
         self.logout_handled = False
+        self.dark_mode = dark_mode
+        self.light_style = light_style if light_style else LIGHT_STYLE
+        self.dark_style = dark_style if dark_style else DARK_STYLE
         self.status_timer = QTimer(self)
         self.status_timer.setSingleShot(True)
         self.status_timer.timeout.connect(self.status_clear)
         self.setWindowTitle("DocGuard | Employee workspace")
         self.setMinimumSize(760, 700)
         self.resize(900, 780)
-        self.setStyleSheet(STYLE)
+        self.setStyleSheet(self.dark_style if self.dark_mode else self.light_style)
         self.build_ui()
 
     def build_ui(self):
@@ -83,6 +113,10 @@ class EmployeeWindow(QMainWindow):
         brand.setObjectName("brand")
         header.addWidget(brand)
         header.addStretch()
+        theme_button = QPushButton("☀" if self.dark_mode else "🌙")
+        theme_button.setMaximumWidth(40)
+        theme_button.clicked.connect(self.toggle_theme)
+        header.addWidget(theme_button)
         account = QLabel(f"Signed in as {self.uname}")
         account.setObjectName("account")
         header.addWidget(account)
@@ -241,6 +275,10 @@ class EmployeeWindow(QMainWindow):
             self.logout_handled = True
             self.on_logout()
         self.close()
+
+    def toggle_theme(self):
+        self.dark_mode = not self.dark_mode
+        self.setStyleSheet(self.dark_style if self.dark_mode else self.light_style)
 
     def closeEvent(self, event):
         with open("current_session.txt", "w") as session_file:
