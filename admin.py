@@ -1,7 +1,20 @@
 import requests
 import sqlite3
 
-SERVER = "http://127.0.0.1:5000"
+SERVER_PORTS = (8000, 8080, 8888, 9000, 5555)
+
+def find_running_server():
+    for port in SERVER_PORTS:
+        url = f"http://127.0.0.1:{port}"
+        try:
+            r = requests.get(f"{url}/admin/logs", timeout=1)
+            if r.ok:
+                return url
+        except requests.RequestException:
+            pass
+    return None
+
+SERVER = find_running_server() or "http://127.0.0.1:8000"
 
 def admin_login(username, password):
     conn = sqlite3.connect("logs.db")

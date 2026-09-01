@@ -4,7 +4,7 @@ from smtp import send_email_alert
 from datetime import datetime
 import os
 
-PORT = int(os.environ.get("DOCGUARD_PORT", "5000"))
+PORT = int(os.environ.get("DOCGUARD_PORT", "8000"))
 
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

@@ -9,7 +9,7 @@ from watermarking import add_watermark, get_sig_hash
 from encrypt import encrypt_id
 from dlp_utils import is_verified_recipient
 
-SERVER_PORTS = (5000, 5001)
+SERVER_PORTS = (8000, 8080, 8888, 9000, 5555)
 SERVER = "http://127.0.0.1:5000"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
