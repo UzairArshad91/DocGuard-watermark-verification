@@ -10,7 +10,7 @@ from encrypt import encrypt_id
 from dlp_utils import is_verified_recipient
 
 SERVER_PORTS = (8000, 8080, 8888, 9000, 5555)
-SERVER = "http://127.0.0.1:5000"
+SERVER = "http://127.0.0.1:8000"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -23,7 +23,10 @@ def get_available_server_port():
                 return port
             except OSError:
                 continue
-    raise ConnectionError("No free DocGuard server port available (5000 or 5001)")
+    raise ConnectionError(
+        f"No free DocGuard server port available. Tried {SERVER_PORTS}. "
+        "Close programs using those ports and try again."
+    )
 
 
 def find_running_server():
@@ -69,7 +72,7 @@ def ensure_server():
 
     raise ConnectionError(
         f"DocGuard server could not be started within {startup_timeout}s at {SERVER}. "
-        "Check that port 5000 or 5001 is free."
+        f"Make sure one of the ports {SERVER_PORTS} is free and reachable."
     )
 
 def send_document(filepath, user_id, name, email, recipient, pin):

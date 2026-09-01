@@ -4,6 +4,20 @@ import requests, sqlite3, os, time
 from watermarking import get_sig_hash
 from session_utils import get_current_user
 
+SERVER_PORTS = (8000, 8080, 8888, 9000, 5555)
+
+
+def find_running_server():
+    for port in SERVER_PORTS:
+        url = f"http://127.0.0.1:{port}"
+        try:
+            r = requests.get(f"{url}/admin/logs", timeout=1)
+            if r.ok:
+                return url
+        except requests.RequestException:
+            pass
+    return None
+
 
 class Handler(FileSystemEventHandler):
     last_fired = {}
@@ -43,7 +57,9 @@ class Handler(FileSystemEventHandler):
             if row:
                 doc_id = row[0]
                 uid = get_current_user()
-                requests.post("http://127.0.0.1:5000/verify", json={"doc_id": doc_id, "user_id": uid, "current_hash": h})
+                server = find_running_server()
+                if server:
+                    requests.post(f"{server}/verify", json={"doc_id": doc_id, "user_id": uid, "current_hash": h})
         except Exception as e:
             print("Skipped:", e)
 
