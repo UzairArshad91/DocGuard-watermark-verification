@@ -4,6 +4,8 @@ from smtp import send_email_alert
 from datetime import datetime
 import os
 
+PORT = int(os.environ.get("DOCGUARD_PORT", "5000"))
+
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -73,4 +75,4 @@ def admin_logs():
     return jsonify(rows)
 
 if __name__ == "__main__":
-    app.run(debug=True, use_reloader=False)
+    app.run(host="127.0.0.1", port=PORT, debug=True, use_reloader=False)
